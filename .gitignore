@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+# backend runtime data (photos, sqlite db)
+backend/data/
+# model chunks (only used for manual uploads; the full .onnx files are committed)
+backend/models/*.part*
+# Node / build
+node_modules/
+dist/
+.vercel/
+# local archives, OS / editor files
+*.tgz
+*.zip
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+.env
+.env.*

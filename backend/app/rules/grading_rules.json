@@ -1,0 +1,12 @@
+{
+  "version": "2026-09-29-draft",
+  "name": "NAFED/NCCF onion buffer 2026 (draft, from news reports; confirm with DoCA spec)",
+  "urs_open": true,
+  "grade_a": { "min_mm": 45, "max_mm": 65 },
+  "urs": { "min_mm": 35, "max_mm": 70, "allowed_defects": ["black_mould"] },
+  "reject_defects": ["rotten", "sprouted", "damaged"],
+  "lot": { "accept_a_min_pct": 90, "accept_urs_min_pct": 90, "max_reject_pct": 2 },
+  "min_confidence": 0.5,
+  "review_below_confidence": 0.6,
+  "density_g_per_cm3": 0.95
+}
