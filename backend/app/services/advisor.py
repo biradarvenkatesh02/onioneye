@@ -198,6 +198,8 @@ def advise(result, meta=None, lang="en", use_llm=True):
         try:
             data, model = llm_advice(f, lang)
             merged = {**base, **{k: v for k, v in data.items() if v}}
+            merged.setdefault("headline", f"Lot decision: {f['decision']}")
+            merged.setdefault("farmer_message", farmer_message(f, lang))
             return {**out, **merged, "source": "genai", "model": model}
         except Exception as e:
             out["llm_error"] = str(e)[:200]
