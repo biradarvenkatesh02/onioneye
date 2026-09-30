@@ -8,8 +8,7 @@ advice around those facts. If no LLM is reachable (no key, offline centre, quota
 built from standard onion post-harvest practice (NHRDF / ICAR-DOGR guidance) answers instead, so the
 feature never breaks.
 
-LLM access, first available: Groq (GROQ_API_KEY, openai/gpt-oss-20b), Google Gemini (GEMINI_API_KEY), Vercel AI Gateway (OpenAI-compatible). Auth = AI_GATEWAY_API_KEY env var, or the Vercel OIDC
-token that Vercel passes to every function (header x-vercel-oidc-token / env VERCEL_OIDC_TOKEN).
+LLM: Groq (OpenAI-compatible API), model openai/gpt-oss-20b by default. Key: GROQ_API_KEY env var.
 """
 import json
 import os
@@ -17,8 +16,7 @@ import statistics
 import urllib.error
 import urllib.request
 
-GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions"
-MODELS = [os.getenv("ONIONEYE_LLM", "google/gemini-2.5-flash"), "google/gemini-2.5-flash-lite", "openai/gpt-4o-mini"]
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 LANGS = {"en": "English", "hi": "Hindi", "mr": "Marathi", "kn": "Kannada", "te": "Telugu", "ta": "Tamil",
          "gu": "Gujarati", "bn": "Bengali"}
@@ -160,25 +158,6 @@ Return ONLY a JSON object with keys:
  farmer_message (string, 2-4 short sentences, in the requested language and its own script, simple words)."""
 
 
-def _token(request_token=None):
-    return os.getenv("AI_GATEWAY_API_KEY") or request_token or os.getenv("VERCEL_OIDC_TOKEN")
-
-
-def _gemini(user, timeout):
-    """Direct Google Gemini API (free tier key from aistudio.google.com), used when GEMINI_API_KEY is set."""
-    key = os.getenv("GEMINI_API_KEY")
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
-    body = {"systemInstruction": {"parts": [{"text": SYSTEM}]},
-            "contents": [{"role": "user", "parts": [{"text": user}]}],
-            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048, "responseMimeType": "application/json"}}
-    req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        out = json.loads(r.read().decode())
-    text = "".join(p.get("text", "") for p in out["candidates"][0]["content"]["parts"])
-    return json.loads(text[text.find("{"): text.rfind("}") + 1]), f"google/{model}"
-
-
 def _groq(user, timeout):
     """Groq (OpenAI-compatible), default model openai/gpt-oss-20b. Key: GROQ_API_KEY env var."""
     model = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
@@ -186,7 +165,7 @@ def _groq(user, timeout):
             "response_format": {"type": "json_object"},
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]}
     for attempt in range(2):
-        req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions", data=json.dumps(body).encode(),
+        req = urllib.request.Request(GROQ_URL, data=json.dumps(body).encode(),
                                      method="POST", headers={"Authorization": f"Bearer {os.getenv('GROQ_API_KEY')}",
                                                              "Content-Type": "application/json", "User-Agent": "OnionEye/1.0"})
         try:
@@ -203,56 +182,21 @@ def _groq(user, timeout):
     raise RuntimeError("groq failed")
 
 
-def llm_advice(f, lang, request_token=None, timeout=25):
+def llm_advice(f, lang, timeout=25):
+    if not os.getenv("GROQ_API_KEY"):
+        raise RuntimeError("GROQ_API_KEY is not set")
     user = (f"Lot facts (JSON): {json.dumps(f)}\nFarmer message language: {LANGS.get(lang, 'English')}.\n"
             "Grades: Grade A = 45-65 mm, no defects; URS = 35-70 mm, black mould allowed; reject = rot, sprout, damage.")
-    errors = []
-    if os.getenv("GROQ_API_KEY"):
-        try:
-            return _groq(user, timeout)
-        except Exception as e:
-            errors.append(f"groq: {e}")
-    if os.getenv("GEMINI_API_KEY"):
-        try:
-            return _gemini(user, timeout)
-        except Exception as e:
-            errors.append(f"gemini: {e}")
-    tok = _token(request_token)
-    if not tok:
-        raise RuntimeError("; ".join(errors) or "no LLM credentials")
-    user = (f"Lot facts (JSON): {json.dumps(f)}\nFarmer message language: {LANGS.get(lang, 'English')}.\n"
-            "Grades: Grade A = 45-65 mm, no defects; URS = 35-70 mm, black mould allowed; reject = rot, sprout, damage.")
-    last = None
-    for model in MODELS:
-        body = {"model": model, "temperature": 0.3, "max_tokens": 1400,
-                "response_format": {"type": "json_object"},
-                "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]}
-        req = urllib.request.Request(GATEWAY_URL, data=json.dumps(body).encode(), method="POST",
-                                     headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                out = json.loads(r.read().decode())
-            text = out["choices"][0]["message"]["content"].strip()
-            if text.startswith("```"):
-                text = text.strip("`").split("\n", 1)[1].rsplit("```", 1)[0]
-            data = json.loads(text[text.find("{"): text.rfind("}") + 1])
-            return data, model
-        except urllib.error.HTTPError as e:
-            last = f"{e.code} {e.read().decode(errors='ignore')[:160]}"
-            if e.code in (401, 402, 403):   # auth / billing problem: other models won't work either
-                break
-        except Exception as e:           # try the next model
-            last = e
-    raise RuntimeError("; ".join(errors + [f"gateway: {last}"]))
+    return _groq(user, timeout)
 
 
-def advise(result, meta=None, lang="en", request_token=None, use_llm=True):
+def advise(result, meta=None, lang="en", use_llm=True):
     f = lot_facts(result, meta)
     base = rule_advice(f)
     out = {"facts": f, "language": lang, "quality_score": f["quality_score"]}
     if use_llm:
         try:
-            data, model = llm_advice(f, lang, request_token)
+            data, model = llm_advice(f, lang)
             merged = {**base, **{k: v for k, v in data.items() if v}}
             return {**out, **merged, "source": "genai", "model": model}
         except Exception as e:

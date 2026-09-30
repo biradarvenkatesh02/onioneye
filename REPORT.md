@@ -111,7 +111,7 @@ Every report prints the rules version, so a change in norms never silently chang
 ## 7. GenAI quality advisor
 `backend/app/services/advisor.py` turns a graded lot into advice: what the numbers mean, what to do with this lot now (sort / cure / sell / store), storage and market tips, prevention for next season, and a short message for the farmer in 8 Indian languages.
 - **Grounded.** The quality score, defect counts and sizes are computed in code. The LLM only writes advice around those facts and is told never to invent numbers or give pesticide doses.
-- **LLM.** Groq, model `openai/gpt-oss-20b`, JSON mode, set by the `GROQ_API_KEY` env var. Gemini (`GEMINI_API_KEY`) is the backup.
+- **LLM.** Groq, model `openai/gpt-oss-20b`, JSON mode, set by the `GROQ_API_KEY` env var.
 - **Offline fallback.** A rulebook built from standard onion post-harvest practice (NHRDF / ICAR-DOGR) answers when no LLM is reachable, so the feature never breaks.
 
 ## 8. API

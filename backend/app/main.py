@@ -6,7 +6,7 @@ import uuid
 
 import cv2
 import numpy as np
-from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -109,10 +109,9 @@ def languages():
 
 
 @app.post("/api/advice")
-def advice(request: Request, payload: dict = Body(...)):
+def advice(payload: dict = Body(...)):
     """payload: {result: <inspection result>, meta: {farmer, lot_ref, centre}, lang: 'hi', use_llm: true}"""
     result = payload.get("result")
     if not result or "summary" not in result:
         raise HTTPException(400, "Send the inspection result.")
-    return advise(result, payload.get("meta") or {}, payload.get("lang", "en"),
-                  request.headers.get("x-vercel-oidc-token"), payload.get("use_llm", True))
+    return advise(result, payload.get("meta") or {}, payload.get("lang", "en"), payload.get("use_llm", True))

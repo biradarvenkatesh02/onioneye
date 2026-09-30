@@ -1,4 +1,7 @@
-ml/
-docs/
-backend/tests/
-backend/data/
+# Only these top-level folders are left out of the Vercel upload.
+# Leading "/" matters: a bare "ml/" would also drop backend/app/ml (the model code).
+/ml/
+/docs/
+/backend/tests/
+/backend/data/
+/.env

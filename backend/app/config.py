@@ -2,6 +2,21 @@ from pathlib import Path
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent           # backend/
+
+
+def _load_env_file():
+    """Read KEY=value lines from onioneye/.env or backend/.env (no extra dependency). Real env vars win."""
+    for f in (BASE_DIR.parent / ".env", BASE_DIR / ".env"):
+        if f.is_file():
+            for line in f.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    if v.strip():
+                        os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+_load_env_file()
 ON_VERCEL = bool(os.getenv("VERCEL"))                       # serverless: only /tmp is writable
 DATA_DIR = Path(os.getenv("ONIONEYE_DATA", "/tmp/onioneye" if ON_VERCEL else BASE_DIR / "data"))
 # return images inside the JSON (data: URLs) instead of files under /media; needed on serverless hosts

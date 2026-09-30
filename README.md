@@ -37,6 +37,8 @@ onioneye/
 
 ## Run it (Windows)
 
+Settings: copy `.env.example` to `.env` (API keys for the GenAI advisor are optional; without them it uses the offline rulebook) and, if the backend runs elsewhere, `frontend/.env.example` to `frontend/.env.local`. On Vercel, set the same keys under Settings → Environment Variables.
+
 Two terminals, from the `onioneye` folder.
 
 **Backend**
